@@ -1,0 +1,626 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Régie</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Concept : une régie de tournage. Barre d'onglets façon table de montage, compteurs en police mono (timecode), un seul rouge "REC" comme accent. */
+:root {
+  --bg: #eef0f3;
+  --surface: #ffffff;
+  --surface-2: #f5f6f8;
+  --fg: #15181d;
+  --muted: #5b6471;
+  --line: #d8dce3;
+  --accent: #d92d27;
+  --accent-fg: #ffffff;
+  --ok: #17754d;
+  --warn: #8f5a05;
+  --bad: #b42318;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1013; --surface: #171a1f; --surface-2: #1e2228; --fg: #eceef1; --muted: #9aa2af;
+    --line: #2b3039; --accent: #ff5d55; --accent-fg: #16090a; --ok: #4cc38a; --warn: #e3a645; --bad: #ff8077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1013; --surface: #171a1f; --surface-2: #1e2228; --fg: #eceef1; --muted: #9aa2af;
+  --line: #2b3039; --accent: #ff5d55; --accent-fg: #16090a; --ok: #4cc38a; --warn: #e3a645; --bad: #ff8077;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font: 400 15px/1.5 var(--font-body);
+  padding-block: 8px 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1040px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
+button, input, select, textarea { font-family: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-block: 20px 6px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand h1 { font-size: 30px; font-weight: 700; line-height: 1; }
+.rec { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .rec { animation: none; } }
+.tagline { color: var(--muted); font-size: 14px; }
+.meter { font: 500 12px var(--font-mono); color: var(--muted); }
+.meter[hidden] { display: none; }
+
+.banner { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 8px; padding: 10px 14px; margin-top: 12px; color: var(--fg); font-size: 14px; }
+.banner[hidden] { display: none; }
+
+.tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); margin-top: 14px; }
+.tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 12px 14px; font: 600 15px var(--font-body); color: var(--muted); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab .n { font: 500 12px var(--font-mono); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; min-width: 24px; text-align: center; }
+
+.panel { display: grid; gap: 20px; padding-block: 22px 56px; }
+.panel[hidden] { display: none; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.panel-head h2 { font-size: 22px; }
+.panel-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.form { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.f { display: grid; gap: 6px; font: 600 13px var(--font-body); color: var(--muted); min-width: 0; }
+.f .hint { font-weight: 400; }
+input[type="text"], input[type="url"], input[type="file"], select, textarea {
+  font: 400 15px var(--font-body); color: var(--fg); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; width: 100%;
+}
+textarea { min-height: 76px; resize: vertical; }
+input[type="file"] { padding: 8px; }
+.actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn { appearance: none; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); font: 600 14px var(--font-body); padding: 10px 16px; border-radius: 8px; cursor: pointer; min-height: 40px; }
+.btn:disabled { opacity: .55; cursor: progress; }
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+.btn.ghost:hover { border-color: var(--muted); }
+.btn.small { padding: 6px 10px; min-height: 32px; font-size: 13px; }
+.btn.danger-armed { background: var(--bad); border-color: var(--bad); color: #fff; }
+.counter { font: 500 12px var(--font-mono); color: var(--muted); }
+.counter.ok { color: var(--ok); } .counter.warn { color: var(--warn); } .counter.bad { color: var(--bad); }
+
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { appearance: none; background: var(--surface); border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 5px 12px; font: 500 13px var(--font-body); cursor: pointer; }
+.chip[aria-pressed="true"] { color: var(--fg); border-color: var(--fg); }
+
+.list { display: grid; gap: 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.idea { display: grid; gap: 8px; }
+.idea-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.idea h3 { font-size: 18px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.pitch { margin: 0; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.idea-foot { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+.links { font: 500 12px var(--font-mono); color: var(--muted); }
+select.status { width: auto; padding: 6px 10px; font-size: 13px; }
+.tag { display: inline-block; font: 500 12px var(--font-mono); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+
+.titlerow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.titlerow .txt { overflow-wrap: anywhere; font-weight: 500; }
+.titlerow .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.titlerow .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.star { appearance: none; background: none; border: 1px solid var(--line); border-radius: 8px; width: 36px; height: 36px; cursor: pointer; color: var(--muted); display: grid; place-items: center; }
+.star[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.star svg { width: 18px; height: 18px; fill: currentColor; }
+
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.thumb { display: grid; gap: 10px; align-content: start; }
+.thumb .pic { appearance: none; border: 0; padding: 0; background: var(--surface-2); border-radius: 8px; cursor: zoom-in; overflow: hidden; aspect-ratio: 16 / 9; max-width: 100%; display: block; width: 100%; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .cap { font-weight: 600; overflow-wrap: anywhere; }
+.thumb .foot, .rush .foot { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.rush { display: grid; gap: 10px; align-content: start; }
+.rush video { width: 100%; aspect-ratio: 16 / 9; max-width: 100%; background: #000; border-radius: 8px; display: block; }
+.linkbox { aspect-ratio: 16 / 9; max-width: 100%; border-radius: 8px; background: var(--surface-2); border: 1px dashed var(--line); display: grid; place-items: center; padding: 12px; text-align: center; }
+.linkbox a { color: var(--accent); font-weight: 600; overflow-wrap: anywhere; }
+.rush .note { margin: 0; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.mono { font: 500 12px var(--font-mono); color: var(--muted); }
+
+.empty { border: 1px dashed var(--line); border-radius: 10px; padding: 28px 18px; text-align: center; color: var(--muted); }
+.empty strong { display: block; color: var(--fg); font: 600 16px var(--font-display); margin-bottom: 4px; }
+
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg label { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; font: 500 14px var(--font-body); color: var(--fg); }
+.seg input { width: auto; margin: 0; accent-color: var(--accent); }
+
+.readonly .form, .readonly .act { display: none; }
+
+#lightbox { position: fixed; inset: 0; background: rgba(8, 9, 11, .88); display: grid; place-items: center; padding: 20px; z-index: 50; cursor: zoom-out; }
+#lightbox[hidden] { display: none; }
+#lightbox figure { margin: 0; display: grid; gap: 10px; max-width: min(1100px, 100%); }
+#lightbox img { max-width: 100%; max-height: 80vh; border-radius: 8px; }
+#lightbox figcaption { color: #eceef1; text-align: center; font-weight: 600; }
+
+#toast { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; pointer-events: none; z-index: 60; }
+#toast span { background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 500; max-width: 520px; box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+#toast[hidden] { display: none; }
+
+@media (max-width: 560px) {
+  .titlerow { grid-template-columns: auto minmax(0, 1fr); }
+  .titlerow .acts { grid-column: 1 / -1; justify-content: flex-start; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand"><span class="rec" aria-hidden="true"></span><h1>Régie</h1></div>
+      <div class="tagline">Idées, titres, miniatures et rushs de ta chaîne, au même endroit.</div>
+    </div>
+    <div class="meter" id="meter" hidden></div>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-idees" data-tab="idees" aria-controls="panel-idees" aria-selected="true">Idées <span class="n" id="n-ideas">0</span></button>
+    <button class="tab" role="tab" id="tab-titres" data-tab="titres" aria-controls="panel-titres" aria-selected="false">Titres <span class="n" id="n-titles">0</span></button>
+    <button class="tab" role="tab" id="tab-miniatures" data-tab="miniatures" aria-controls="panel-miniatures" aria-selected="false">Miniatures <span class="n" id="n-thumbs">0</span></button>
+    <button class="tab" role="tab" id="tab-rushs" data-tab="rushs" aria-controls="panel-rushs" aria-selected="false">Rushs <span class="n" id="n-rushes">0</span></button>
+  </nav>
+
+  <main>
+    <!-- IDÉES -->
+    <section class="panel" id="panel-idees" role="tabpanel" aria-labelledby="tab-idees">
+      <div class="panel-head"><h2>Idées de vidéos</h2><p>Note tout ce qui te passe par la tête, trie ensuite.</p></div>
+      <form class="form" id="form-idea" autocomplete="off">
+        <div class="row">
+          <label class="f" for="idea-title">Idée<input type="text" id="idea-title" maxlength="140" placeholder="Ex. Je teste 7 jours sans écran" required></label>
+          <label class="f" for="idea-status">Statut<select id="idea-status"></select></label>
+        </div>
+        <label class="f" for="idea-pitch">Pitch, angle, notes <span class="hint">(facultatif)</span><textarea id="idea-pitch" maxlength="2000" placeholder="Accroche, déroulé, invités, matériel à prévoir…"></textarea></label>
+        <div class="actions"><button class="btn" type="submit" id="idea-add">Ajouter l'idée</button></div>
+      </form>
+      <div class="chips" id="idea-filters" role="group" aria-label="Filtrer par statut"></div>
+      <div class="list" id="list-ideas"></div>
+    </section>
+
+    <!-- TITRES -->
+    <section class="panel" id="panel-titres" role="tabpanel" aria-labelledby="tab-titres" hidden>
+      <div class="panel-head"><h2>Titres</h2><p>YouTube coupe souvent après 60 caractères. 100 maximum.</p></div>
+      <form class="form" id="form-title" autocomplete="off">
+        <div class="row">
+          <label class="f" for="title-text">Titre
+            <input type="text" id="title-text" maxlength="100" placeholder="Ex. J'ai vécu 7 jours sans écran (et c'était pire)" required>
+          </label>
+          <label class="f" for="title-idea">Pour quelle idée ?<select id="title-idea"></select></label>
+        </div>
+        <div class="actions"><button class="btn" type="submit" id="title-add">Ajouter le titre</button><span class="counter" id="title-count">0 / 60</span></div>
+      </form>
+      <div class="list" id="list-titles"></div>
+    </section>
+
+    <!-- MINIATURES -->
+    <section class="panel" id="panel-miniatures" role="tabpanel" aria-labelledby="tab-miniatures" hidden>
+      <div class="panel-head"><h2>Miniatures</h2><p>Garde tes versions et marque celle que tu retiens. 16:9, 1280 × 720 idéalement.</p></div>
+      <form class="form" id="form-thumb" autocomplete="off">
+        <div class="row">
+          <label class="f" for="thumb-file">Image (PNG, JPG, WebP ou GIF, 20 Mo max)<input type="file" id="thumb-file" accept="image/png,image/jpeg,image/webp,image/gif" required></label>
+          <label class="f" for="thumb-label">Nom de la version<input type="text" id="thumb-label" maxlength="80" placeholder="Ex. V2, visage + flèche rouge"></label>
+          <label class="f" for="thumb-idea">Pour quelle idée ?<select id="thumb-idea"></select></label>
+        </div>
+        <div class="actions"><button class="btn" type="submit" id="thumb-add">Enregistrer la miniature</button></div>
+      </form>
+      <div class="grid" id="list-thumbs"></div>
+    </section>
+
+    <!-- RUSHS -->
+    <section class="panel" id="panel-rushs" role="tabpanel" aria-labelledby="tab-rushs" hidden>
+      <div class="panel-head"><h2>Rushs</h2><p>Enregistrements bruts, extraits et liens vers tes gros fichiers.</p></div>
+      <form class="form" id="form-rush" autocomplete="off">
+        <div class="row">
+          <label class="f" for="rush-name">Nom du rush<input type="text" id="rush-name" maxlength="100" placeholder="Ex. Prise 3, intro" required></label>
+          <label class="f" for="rush-idea">Pour quelle idée ?<select id="rush-idea"></select></label>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Type d'ajout" id="rush-mode">
+          <label id="mode-file-wrap"><input type="radio" name="rush-kind" id="rush-kind-file" value="file" checked> Envoyer un fichier</label>
+          <label><input type="radio" name="rush-kind" id="rush-kind-link" value="link"> Ajouter un lien</label>
+        </div>
+        <label class="f" for="rush-file" id="wrap-file">Fichier vidéo (MP4 ou WebM, 20 Mo max, au-delà choisis « Ajouter un lien »)<input type="file" id="rush-file" accept="video/mp4,video/webm"></label>
+        <div class="row" id="wrap-url" hidden>
+          <label class="f" for="rush-url">Lien du fichier (YouTube non répertorié, Drive, Dropbox, WeTransfer…)<input type="url" id="rush-url" placeholder="https://"></label>
+          <label class="f" for="rush-info">Taille ou durée <span class="hint">(facultatif)</span><input type="text" id="rush-info" maxlength="40" placeholder="Ex. 4,2 Go · 38 min"></label>
+        </div>
+        <label class="f" for="rush-note">Notes <span class="hint">(timecodes, bonnes prises…)</span><textarea id="rush-note" maxlength="2000" placeholder="Ex. 02:14 bonne vanne · 05:40 son coupé"></textarea></label>
+        <div class="actions"><button class="btn" type="submit" id="rush-add">Ajouter le rush</button></div>
+      </form>
+      <div class="grid" id="list-rushes"></div>
+    </section>
+  </main>
+</div>
+
+<div id="lightbox" hidden><figure><img id="lb-img" alt=""><figcaption id="lb-cap"></figcaption></figure></div>
+<div id="toast" hidden><span id="toast-msg" role="status"></span></div>
+
+<script>
+(function () {
+  var STATUS = [["creuser", "À creuser"], ["pret", "Prête à tourner"], ["montage", "En montage"], ["publie", "Publiée"]];
+  var TABS = ["idees", "titres", "miniatures", "rushs"];
+  var KEYS = ["ideas", "titles", "thumbs", "rushes"];
+  var S = { ideas: [], titles: [], thumbs: [], rushes: [] };
+  var loaded = { ideas: false, titles: false, thumbs: false, rushes: false };
+  var db = null, assets = null, canWrite = true, filter = "all", editing = null;
+
+  function $(s) { return document.querySelector(s); }
+  function el(tag, attrs) {
+    var n = document.createElement(tag), a = attrs || {};
+    Object.keys(a).forEach(function (k) {
+      var v = a[k];
+      if (v == null || v === false) return;
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else if (k.indexOf("on") === 0) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var kids = [].concat(arguments[i]);
+      kids.forEach(function (kid) {
+        if (kid == null || kid === false) return;
+        n.append(kid.nodeType ? kid : document.createTextNode(kid));
+      });
+    }
+    return n;
+  }
+  function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+  function byDate(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); }
+  function fmtDate(ts) { try { return new Date(ts).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }); } catch (e) { return ""; } }
+  function fmtSize(b) { return b >= 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " Mo" : Math.max(1, Math.round(b / 1024)) + " Ko"; }
+  function statusLabel(v) { for (var i = 0; i < STATUS.length; i++) if (STATUS[i][0] === v) return STATUS[i][1]; return STATUS[0][1]; }
+  function ideaName(id) { for (var i = 0; i < S.ideas.length; i++) if (S.ideas[i].id === id) return S.ideas[i].title; return ""; }
+
+  var toastTimer;
+  function toast(msg) {
+    $("#toast-msg").textContent = msg; $("#toast").hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { $("#toast").hidden = true; }, 4200);
+  }
+  function errText(e) {
+    var c = e && e.code;
+    if (c === "too_large") return "Fichier trop lourd : 20 Mo maximum.";
+    if (c === "unsupported_type") return "Format non accepté. Utilise MP4 ou WebM pour les vidéos, PNG, JPG, WebP ou GIF pour les images.";
+    if (c === "quota_or_state" || c === "quota_exceeded") return "L'espace de stockage est plein. Supprime des fichiers pour continuer.";
+    if (c === "rate_limited" || c === "resource_exhausted") return "Trop de requêtes d'un coup. Attends quelques secondes.";
+    if (c === "invalid_argument" || c === "not_granted") return "Tu n'as pas le droit de modifier cette page.";
+    return "L'enregistrement a échoué. Réessaie dans un instant.";
+  }
+  function setBanner(msg) { var b = $("#banner"); b.textContent = msg || ""; b.hidden = !msg; }
+
+  function armDelete(btn, action) {
+    var armed = false, t;
+    btn.addEventListener("click", function () {
+      if (!armed) {
+        armed = true; btn.textContent = "Confirmer ?"; btn.classList.add("danger-armed");
+        t = setTimeout(function () { armed = false; btn.textContent = "Supprimer"; btn.classList.remove("danger-armed"); }, 3000);
+        return;
+      }
+      clearTimeout(t); action();
+    });
+  }
+  async function guard(fn) {
+    if (!db) { toast("Sauvegarde indisponible pour l'instant."); return false; }
+    try { await fn(); return true; } catch (e) { toast(errText(e)); return false; }
+  }
+  async function deleteAsset(id) { if (assets && id) { try { await assets.delete(id); } catch (e) {} refreshMeter(); } }
+  async function refreshMeter() {
+    var m = $("#meter");
+    if (!assets) { m.hidden = true; return; }
+    try {
+      var r = await assets.list();
+      m.textContent = "Stockage " + fmtSize(r.usage.bytes) + " / " + fmtSize(r.usage.maxBytes);
+      m.hidden = false;
+    } catch (e) { m.hidden = true; }
+  }
+
+  /* ---------- Navigation ---------- */
+  function route() {
+    var h = (location.hash || "").replace("#", "");
+    var tab = TABS.indexOf(h) >= 0 ? h : "idees";
+    TABS.forEach(function (t) {
+      $("#panel-" + t).hidden = t !== tab;
+      $("#tab-" + t).setAttribute("aria-selected", t === tab ? "true" : "false");
+    });
+  }
+  document.querySelectorAll(".tab").forEach(function (b) {
+    b.addEventListener("click", function () { location.hash = b.dataset.tab; });
+  });
+  window.addEventListener("hashchange", route);
+
+  /* ---------- Rendu ---------- */
+  function emptyBox(title, text) { return el("div", { class: "empty" }, el("strong", { text: title }), text); }
+  function loadingBox() { return el("div", { class: "empty", text: "Chargement…" }); }
+
+  function fillIdeaSelects() {
+    ["title-idea", "thumb-idea", "rush-idea"].forEach(function (id) {
+      var sel = $("#" + id), cur = sel.value;
+      clear(sel);
+      sel.append(el("option", { value: "", text: "Aucune idée liée" }));
+      S.ideas.slice().sort(byDate).forEach(function (i) { sel.append(el("option", { value: i.id, text: i.title })); });
+      sel.value = cur;
+      if (sel.value !== cur) sel.value = "";
+    });
+  }
+  function ideaTag(id) { var n = ideaName(id); return n ? el("span", { class: "tag", title: n, text: "Idée : " + n }) : null; }
+
+  function renderFilters() {
+    var box = $("#idea-filters"); clear(box);
+    var all = [["all", "Toutes"]].concat(STATUS);
+    all.forEach(function (p) {
+      box.append(el("button", { type: "button", class: "chip", "aria-pressed": filter === p[0] ? "true" : "false", text: p[1], onclick: function () { filter = p[0]; renderIdeas(); } }));
+    });
+  }
+  function ideaCard(i) {
+    var nT = S.titles.filter(function (t) { return t.ideaId === i.id; }).length;
+    var nM = S.thumbs.filter(function (t) { return t.ideaId === i.id; }).length;
+    var nR = S.rushes.filter(function (t) { return t.ideaId === i.id; }).length;
+    if (editing === i.id) {
+      var ti = el("input", { type: "text", id: "edit-title", maxlength: "140", value: i.title });
+      var pi = el("textarea", { id: "edit-pitch", maxlength: "2000" }); pi.value = i.pitch || "";
+      return el("div", { class: "card idea" },
+        el("label", { class: "f", for: "edit-title" }, "Idée", ti),
+        el("label", { class: "f", for: "edit-pitch" }, "Pitch, angle, notes", pi),
+        el("div", { class: "actions" },
+          el("button", { class: "btn small", type: "button", text: "Enregistrer", onclick: async function () {
+            var title = ti.value.trim(); if (!title) { toast("L'idée a besoin d'un titre."); return; }
+            var ok = await guard(function () { return db.doc("ideas/" + i.id).update({ title: title, pitch: pi.value.trim() }); });
+            if (ok) { editing = null; renderIdeas(); }
+          } }),
+          el("button", { class: "btn small ghost", type: "button", text: "Annuler", onclick: function () { editing = null; renderIdeas(); } })));
+    }
+    var sel = el("select", { class: "status act", "aria-label": "Statut de l'idée", onchange: function () {
+      guard(function () { return db.doc("ideas/" + i.id).update({ status: sel.value }); });
+    } });
+    STATUS.forEach(function (s) { sel.append(el("option", { value: s[0], text: s[1] })); });
+    sel.value = i.status || "creuser";
+    var del = el("button", { class: "btn small ghost act", type: "button", text: "Supprimer" });
+    armDelete(del, function () { guard(function () { return db.doc("ideas/" + i.id).delete(); }); });
+    return el("article", { class: "card idea" },
+      el("div", { class: "idea-top" }, el("h3", { text: i.title }),
+        sel, el("span", { class: "tag", text: statusLabel(i.status) })),
+      i.pitch ? el("p", { class: "pitch", text: i.pitch }) : null,
+      el("div", { class: "idea-foot" },
+        el("span", { class: "links", text: nT + " titre" + (nT > 1 ? "s" : "") + " · " + nM + " miniature" + (nM > 1 ? "s" : "") + " · " + nR + " rush" + (nR > 1 ? "s" : "") }),
+        el("div", { class: "actions act" },
+          el("button", { class: "btn small ghost", type: "button", text: "Modifier", onclick: function () { editing = i.id; renderIdeas(); } }), del)));
+  }
+  function renderIdeas() {
+    renderFilters();
+    var box = $("#list-ideas"); clear(box);
+    if (db && !loaded.ideas) { box.append(loadingBox()); return; }
+    var items = S.ideas.slice().sort(byDate).filter(function (i) { return filter === "all" || (i.status || "creuser") === filter; });
+    if (!items.length) {
+      box.append(S.ideas.length ? emptyBox("Rien dans ce statut", "Change de filtre pour voir les autres idées.")
+        : emptyBox("Aucune idée pour l'instant", "Ajoute la première avec le formulaire ci-dessus."));
+      return;
+    }
+    items.forEach(function (i) { box.append(ideaCard(i)); });
+  }
+
+  function lenClass(n) { return n === 0 ? "" : n <= 60 ? "ok" : n <= 70 ? "warn" : "bad"; }
+  function renderTitles() {
+    var box = $("#list-titles"); clear(box);
+    if (db && !loaded.titles) { box.append(loadingBox()); return; }
+    if (!S.titles.length) { box.append(emptyBox("Aucun titre pour l'instant", "Écris plusieurs versions d'un même titre pour choisir la meilleure.")); return; }
+    var items = S.titles.slice().sort(function (a, b) { return (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || byDate(a, b); });
+    items.forEach(function (t) {
+      var n = (t.text || "").length;
+      var star = el("button", { class: "star act", type: "button", "aria-pressed": t.fav ? "true" : "false", "aria-label": t.fav ? "Retirer des favoris" : "Marquer comme favori", onclick: function () {
+        guard(function () { return db.doc("titles/" + t.id).update({ fav: !t.fav }); });
+      } }, svgStar());
+      var starView = canWrite ? star : el("span", { class: "star", "aria-hidden": "true", style: t.fav ? "color:var(--accent);border-color:var(--accent)" : "opacity:.35" }, svgStar());
+      var copy = el("button", { class: "btn small ghost", type: "button", text: "Copier", onclick: function () {
+        try { navigator.clipboard.writeText(t.text).then(function () { toast("Titre copié."); }, function () { toast("Copie impossible, sélectionne le texte à la main."); }); }
+        catch (e) { toast("Copie impossible, sélectionne le texte à la main."); }
+      } });
+      var del = el("button", { class: "btn small ghost act", type: "button", text: "Supprimer" });
+      armDelete(del, function () { guard(function () { return db.doc("titles/" + t.id).delete(); }); });
+      box.append(el("article", { class: "card titlerow" }, starView,
+        el("div", null, el("div", { class: "txt", text: t.text }),
+          el("div", { class: "meta" }, el("span", { class: "counter " + lenClass(n), text: n + " caractères" }), ideaTag(t.ideaId), el("span", { class: "mono", text: fmtDate(t.createdAt) }))),
+        el("div", { class: "acts" }, copy, del)));
+    });
+  }
+  function svgStar() {
+    var ns = "http://www.w3.org/2000/svg", s = document.createElementNS(ns, "svg"), p = document.createElementNS(ns, "path");
+    s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true");
+    p.setAttribute("d", "M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z");
+    s.append(p); return s;
+  }
+
+  function openLightbox(src, cap) { $("#lb-img").src = src; $("#lb-img").alt = cap; $("#lb-cap").textContent = cap; $("#lightbox").hidden = false; }
+  $("#lightbox").addEventListener("click", function () { $("#lightbox").hidden = true; });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") $("#lightbox").hidden = true; });
+
+  function renderThumbs() {
+    var box = $("#list-thumbs"); clear(box);
+    if (db && !loaded.thumbs) { box.append(loadingBox()); return; }
+    if (!S.thumbs.length) { box.append(emptyBox("Aucune miniature pour l'instant", "Envoie tes premières versions pour les comparer côte à côte.")); return; }
+    S.thumbs.slice().sort(function (a, b) { return (b.chosen ? 1 : 0) - (a.chosen ? 1 : 0) || byDate(a, b); }).forEach(function (t) {
+      var src = "/_blob/" + t.assetId, cap = t.label || "Miniature";
+      var pick = el("button", { class: "btn small act" + (t.chosen ? "" : " ghost"), type: "button", "aria-pressed": t.chosen ? "true" : "false", text: t.chosen ? "Retenue" : "Retenir", onclick: function () {
+        guard(function () { return db.doc("thumbs/" + t.id).update({ chosen: !t.chosen }); });
+      } });
+      var del = el("button", { class: "btn small ghost act", type: "button", text: "Supprimer" });
+      armDelete(del, async function () {
+        var ok = await guard(function () { return db.doc("thumbs/" + t.id).delete(); });
+        if (ok) deleteAsset(t.assetId);
+      });
+      box.append(el("article", { class: "card thumb" },
+        el("button", { class: "pic", type: "button", "aria-label": "Agrandir " + cap, onclick: function () { openLightbox(src, cap); } }, el("img", { src: src, alt: cap, loading: "lazy" })),
+        el("div", { class: "cap", text: cap }),
+        el("div", { class: "foot" }, el("span", null, ideaTag(t.ideaId), " ", el("span", { class: "mono", text: fmtDate(t.createdAt) })), el("span", { class: "actions" }, pick, del))));
+    });
+  }
+
+  function provider(u) {
+    try {
+      var h = new URL(u).hostname.replace(/^www\./, "");
+      if (/youtube\.com|youtu\.be/.test(h)) return "YouTube";
+      if (/drive\.google/.test(h)) return "Google Drive";
+      if (/dropbox/.test(h)) return "Dropbox";
+      if (/wetransfer|we\.tl/.test(h)) return "WeTransfer";
+      return h;
+    } catch (e) { return "le lien"; }
+  }
+  function renderRushes() {
+    var box = $("#list-rushes"); clear(box);
+    if (db && !loaded.rushes) { box.append(loadingBox()); return; }
+    if (!S.rushes.length) { box.append(emptyBox("Aucun rush pour l'instant", "Envoie un extrait ou colle le lien de tes fichiers lourds.")); return; }
+    S.rushes.slice().sort(byDate).forEach(function (r) {
+      var media = r.assetId
+        ? el("video", { controls: true, preload: "metadata", src: "/_blob/" + r.assetId, "aria-label": r.name })
+        : el("div", { class: "linkbox" }, el("a", { href: r.url, target: "_blank", rel: "noopener noreferrer", text: "Ouvrir sur " + provider(r.url) + " ↗" }));
+      var del = el("button", { class: "btn small ghost act", type: "button", text: "Supprimer" });
+      armDelete(del, async function () {
+        var ok = await guard(function () { return db.doc("rushes/" + r.id).delete(); });
+        if (ok && r.assetId) deleteAsset(r.assetId);
+      });
+      box.append(el("article", { class: "card rush" }, media,
+        el("div", { class: "cap", style: "font-weight:600;overflow-wrap:anywhere", text: r.name }),
+        r.note ? el("p", { class: "note", text: r.note }) : null,
+        el("div", { class: "foot" }, el("span", null, ideaTag(r.ideaId), " ", el("span", { class: "mono", text: fmtDate(r.createdAt) + (r.size ? " · " + fmtSize(r.size) : "") + (r.info ? " · " + r.info : "") })), del)));
+    });
+  }
+  function renderCounts() { KEYS.forEach(function (k) { $("#n-" + k).textContent = S[k].length; }); }
+  function renderAll() { fillIdeaSelects(); renderCounts(); renderIdeas(); renderTitles(); renderThumbs(); renderRushes(); }
+
+  /* ---------- Formulaires ---------- */
+  async function submit(btn, fn) {
+    if (btn.disabled) return false;
+    btn.disabled = true;
+    try { return await fn(); } finally { btn.disabled = false; }
+  }
+  STATUS.forEach(function (s) { $("#idea-status").append(el("option", { value: s[0], text: s[1] })); });
+
+  $("#form-idea").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = $("#idea-title").value.trim(); if (!title) return;
+    submit($("#idea-add"), async function () {
+      var ok = await guard(function () {
+        return db.collection("ideas").add({ title: title, pitch: $("#idea-pitch").value.trim(), status: $("#idea-status").value, createdAt: Date.now() });
+      });
+      if (ok) { $("#idea-title").value = ""; $("#idea-pitch").value = ""; toast("Idée ajoutée."); }
+    });
+  });
+
+  function updCount() {
+    var n = $("#title-text").value.length, c = $("#title-count");
+    c.textContent = n + " / 60"; c.className = "counter " + lenClass(n);
+  }
+  $("#title-text").addEventListener("input", updCount);
+  $("#form-title").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = $("#title-text").value.trim(); if (!text) return;
+    submit($("#title-add"), async function () {
+      var ok = await guard(function () {
+        return db.collection("titles").add({ text: text, ideaId: $("#title-idea").value, fav: false, createdAt: Date.now() });
+      });
+      if (ok) { $("#title-text").value = ""; updCount(); toast("Titre ajouté."); }
+    });
+  });
+
+  var IMG_OK = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+  $("#form-thumb").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = $("#thumb-file").files[0]; if (!f) return;
+    if (!assets) { toast("L'envoi d'images est réservé à celui qui édite la page."); return; }
+    if (IMG_OK.indexOf(f.type) < 0) { toast(errText({ code: "unsupported_type" })); return; }
+    submit($("#thumb-add"), async function () {
+      if (!db) { toast("Sauvegarde indisponible pour l'instant."); return; }
+      var up;
+      try { up = await assets.upload(f); } catch (err) { toast(errText(err)); return; }
+      var ok = await guard(function () {
+        return db.collection("thumbs").add({ assetId: up.id, label: $("#thumb-label").value.trim(), ideaId: $("#thumb-idea").value, chosen: false, createdAt: Date.now() });
+      });
+      if (ok) { $("#thumb-file").value = ""; $("#thumb-label").value = ""; toast("Miniature enregistrée."); }
+      else { deleteAsset(up.id); }
+      refreshMeter();
+    });
+  });
+
+  function syncRushMode() {
+    var link = $("#rush-kind-link").checked;
+    $("#wrap-file").hidden = link; $("#wrap-url").hidden = !link;
+  }
+  $("#rush-kind-file").addEventListener("change", syncRushMode);
+  $("#rush-kind-link").addEventListener("change", syncRushMode);
+  $("#rush-file").addEventListener("change", function () {
+    var f = this.files[0];
+    if (f && f.size > 20 * 1048576) {
+      this.value = ""; $("#rush-kind-link").checked = true; syncRushMode();
+      toast("Ce fichier dépasse 20 Mo. Mets-le sur YouTube (non répertorié), Drive ou Dropbox, puis colle le lien ici.");
+    }
+  });
+  $("#form-rush").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("#rush-name").value.trim(); if (!name) return;
+    var isLink = $("#rush-kind-link").checked, note = $("#rush-note").value.trim(), ideaId = $("#rush-idea").value;
+    submit($("#rush-add"), async function () {
+      if (!db) { toast("Sauvegarde indisponible pour l'instant."); return; }
+      var body = { name: name, note: note, ideaId: ideaId, createdAt: Date.now() }, up = null;
+      if (isLink) {
+        var u;
+        try { u = new URL($("#rush-url").value.trim()); } catch (err) { toast("Colle un lien complet qui commence par https://"); return; }
+        if (u.protocol !== "https:" && u.protocol !== "http:") { toast("Le lien doit commencer par https://"); return; }
+        body.url = u.href; body.info = $("#rush-info").value.trim();
+      } else {
+        var f = $("#rush-file").files[0];
+        if (!f) { toast("Choisis un fichier vidéo."); return; }
+        if (!assets) { toast("L'envoi de fichiers est réservé à celui qui édite la page. Utilise un lien."); return; }
+        if (f.type !== "video/mp4" && f.type !== "video/webm") { toast("Format non accepté. Exporte ta vidéo en MP4 ou WebM."); return; }
+        if (f.size > 20 * 1048576) { toast("Fichier trop lourd : 20 Mo maximum. Pour un rush plus gros, ajoute un lien."); return; }
+        try { up = await assets.upload(f); } catch (err) { toast(errText(err)); return; }
+        body.assetId = up.id; body.size = up.sizeBytes;
+      }
+      var ok = await guard(function () { return db.collection("rushes").add(body); });
+      if (ok) {
+        $("#rush-name").value = ""; $("#rush-note").value = ""; $("#rush-file").value = ""; $("#rush-url").value = ""; $("#rush-info").value = "";
+        toast("Rush ajouté.");
+      } else if (up) { deleteAsset(up.id); }
+      refreshMeter();
+    });
+  });
+
+  /* ---------- Démarrage ---------- */
+  function watch(key) {
+    db.collection(key).onSnapshot(function (snap) {
+      S[key] = snap.docs.map(function (d) { var o = Object.assign({}, d.data()); o.id = d.id; return o; });
+      loaded[key] = true;
+      if (KEYS.every(function (k) { return loaded[k]; })) setBanner("");
+      renderCounts();
+      if (key === "ideas") { fillIdeaSelects(); if (!editing) renderIdeas(); renderTitles(); renderThumbs(); renderRushes(); }
+      else { if (!editing) renderIdeas(); if (key === "titles") renderTitles(); if (key === "thumbs") renderThumbs(); if (key === "rushes") renderRushes(); }
+    }, function () {
+      loaded[key] = true; setBanner("Une partie des données n'a pas pu être chargée. Recharge la page."); renderAll();
+    });
+  }
+  async function init() {
+    renderAll(); route(); updCount();
+    var c = window.claude;
+    if (!c || !c.use) { setBanner("Ouvre cette page depuis Claude pour sauvegarder tes données."); return; }
+    try { db = await c.use("db"); } catch (e) { db = null; }
+    if (!db) { setBanner("Sauvegarde indisponible : connecte-toi pour retrouver et modifier tes données."); renderAll(); return; }
+    try { assets = await c.use("assets"); } catch (e) { assets = null; }
+    try { var u = await c.use("user"); if (u) { var ce = await u.canEdit(); if (ce === false) canWrite = false; } } catch (e) {}
+    document.body.classList.toggle("readonly", !canWrite);
+    if (!assets) {
+      $("#mode-file-wrap").hidden = true; $("#rush-kind-link").checked = true; syncRushMode();
+      $("#form-thumb").hidden = true;
+    }
+    renderAll();
+    var timer = setTimeout(function () { if (!KEYS.every(function (k) { return loaded[k]; })) setBanner("Les données mettent du temps à arriver. Elles s'afficheront dès que possible."); }, 10000);
+    KEYS.forEach(watch);
+    refreshMeter();
+    window.addEventListener("pagehide", function () { clearTimeout(timer); });
+  }
+  init();
+})();
+</script>
+
+</body></html>
